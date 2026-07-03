@@ -466,7 +466,6 @@ final class WP_Interactivity_API {
 		if ( ! str_contains( $html, 'data-wp-' ) ) {
 			return $html;
 		}
-
 		$this->namespace_stack = array();
 		$this->context_stack   = array();
 
@@ -474,7 +473,6 @@ final class WP_Interactivity_API {
 
 		$this->namespace_stack = null;
 		$this->context_stack   = null;
-
 		return $result ?? $html;
 	}
 
@@ -867,6 +865,20 @@ final class WP_Interactivity_API {
 		// Process each statement; return the last statement's value.
 		$result = null;
 		foreach ( $statements as $statement ) {
+			$php_expr = $statement;
+
+			// Transform el.* and evt.* to the PHP literal `null`.
+			// These are client-only browser/DOM references (element
+			// and event object) with no server-side equivalent.
+			// Must run BEFORE the state/context transforms so that
+			// $__st['el'] (from a state.el path) is not incorrectly
+			// matched by the el regex.
+			$php_expr = preg_replace(
+				'/(?<![\w.])(?:el|evt)(?:\.[a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)?/',
+				'null',
+				$php_expr
+			);
+
 			// Transform state.X.Y.Z to $__st['X']['Y']['Z'].
 			$php_expr = preg_replace_callback(
 				'/state\.([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)*)/',
@@ -878,7 +890,7 @@ final class WP_Interactivity_API {
 					}
 					return $r;
 				},
-				$statement
+				$php_expr
 			);
 
 			// Transform context.X.Y.Z to $__ctx['X']['Y']['Z'].

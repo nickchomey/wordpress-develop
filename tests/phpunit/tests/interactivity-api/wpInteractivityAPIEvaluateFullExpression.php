@@ -666,4 +666,106 @@ class Tests_Interactivity_API_EvaluateFullExpression extends WP_UnitTestCase {
 		$this->assertFalse( $this->evaluate( '!state.count === 5' ) );
 		// JS: !5 is false, false === 5 is false.
 	}
+
+	/* ──────────────────────────────────────────────────────────────────
+	 * el / evt support (client-only browser/DOM references)
+	 * ────────────────────────────────────────────────────────────────── */
+
+	/**
+	 * @ticket 60356
+	 */
+	public function test_el_identifier_defers_to_client() {
+		$invoked = 0;
+		$this->set_up_fixture( $invoked );
+		// el is client-only (no DOM on the server); returns null.
+		$this->assertNull( $this->evaluate( 'el' ) );
+	}
+
+	/**
+	 * @ticket 60356
+	 */
+	public function test_el_dotted_path_defers_to_client() {
+		$invoked = 0;
+		$this->set_up_fixture( $invoked );
+		$this->assertNull( $this->evaluate( 'el.tagName' ) );
+		$this->assertNull( $this->evaluate( 'el.offsetHeight' ) );
+	}
+
+	/**
+	 * @ticket 60356
+	 */
+	public function test_evt_identifier_defers_to_client() {
+		$invoked = 0;
+		$this->set_up_fixture( $invoked );
+		$this->assertNull( $this->evaluate( 'evt' ) );
+	}
+
+	/**
+	 * @ticket 60356
+	 */
+	public function test_evt_dotted_path_defers_to_client() {
+		$invoked = 0;
+		$this->set_up_fixture( $invoked );
+		$this->assertNull( $this->evaluate( 'evt.type' ) );
+		$this->assertNull( $this->evaluate( 'evt.defaultPrevented' ) );
+	}
+
+	/**
+	 * @ticket 60356
+	 *
+	 * Negation on el/evt: !el → !null → true (same as JS where
+	 * !null is true, since null is falsy in both PHP and JS).
+	 */
+	public function test_negation_on_el() {
+		$invoked = 0;
+		$this->set_up_fixture( $invoked );
+		$this->assertTrue( $this->evaluate( '!el' ) );
+		$this->assertTrue( $this->evaluate( '!evt' ) );
+	}
+
+	/**
+	 * @ticket 60356
+	 *
+	 * el/evt mixed with state: the state part evaluates normally,
+	 * el/evt resolves to null.
+	 */
+	public function test_el_mixed_with_state() {
+		$invoked = 0;
+		$this->set_up_fixture( $invoked );
+
+		// Both approaches agree: null || 5 → 5 (truthy).
+		$this->assertTrue( $this->evaluate( 'el || state.flag' ) );
+
+		// Approach A transforms el → null, evaluates as PHP:
+		//   $__st['flag'] && null → false (PHP's && returns boolean).
+		// Approach B resolves el → null, evaluates as JS:
+		//   5 && null → null (JS && returns right operand).
+		// Test each approach individually to avoid the WP_DEBUG
+		// comparison warning that flags this known divergence.
+		$store    = array(
+			'state'   => $this->interactivity->state( 'myplugin' ),
+			'context' => $this->interactivity->get_context( 'myplugin' ),
+		);
+		$method_a = new ReflectionMethod( $this->interactivity, 'evaluate_full_expression_approach_a' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method_a->setAccessible( true );
+		}
+		$this->assertFalse(
+			$method_a->invoke( $this->interactivity, 'state.flag && el', $store, 'myplugin' )
+		);
+
+		// Approach B: resolves el → null → returns null (JS && semantics).
+		$method_resolve = new ReflectionMethod( $this->interactivity, 'resolve_path_with_closures' );
+		if ( PHP_VERSION_ID < 80100 ) {
+			$method_resolve->setAccessible( true );
+		}
+		$evaluator = new WP_Interactivity_Expression_Evaluator(
+			function ( string $path ) use ( $store, $method_resolve ) {
+				return $method_resolve->invoke( $this->interactivity, $store, explode( '.', $path ), 'myplugin' );
+			}
+		);
+		$this->assertNull(
+			$evaluator->evaluate( 'state.flag && el' )
+		);
+	}
 }

@@ -830,11 +830,11 @@ class WP_Interactivity_Expression_Evaluator {
 	 *         not a recognised path.
 	 */
 	private function resolve_identifier( string $path ) {
-		// Actions and callbacks are client-only JS function references.
-		// Recognise them as valid so expressions mixing state/context with
-		// actions/callbacks don't throw UNSUPPORTED. The server resolves
-		// them to null, which means "defer to client."
-		if ( 0 === strpos( $path, 'actions.' ) || 0 === strpos( $path, 'callbacks.' ) ) {
+		// actions.*, callbacks.*, el, el.*, evt, evt.* are client-only
+		// references (JS functions, DOM element, event object) with no
+		// server-side equivalent. Resolve them to null so expressions
+		// that reference them gracefully defer to the client.
+		if ( preg_match( '/^(?:actions|callbacks)\.|^(?:el|evt)(?:\.|$)/', $path ) ) {
 			return null;
 		}
 
