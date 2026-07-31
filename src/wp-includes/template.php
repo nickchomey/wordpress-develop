@@ -800,6 +800,27 @@ function load_template( $_template_file, $load_once = true, $args = array() ) {
 	}
 
 	/**
+	 * Filters a template's rendered output before it is loaded.
+	 *
+	 * Lets a plugin serve a cached copy of the template's output and skip the
+	 * require() entirely. When a callback returns a non-null value, that value
+	 * is echoed and load_template() returns early (the
+	 * wp_before_load_template / wp_after_load_template actions do not fire).
+	 *
+	 * @since 7.0.0 (local patch — not in upstream WordPress)
+	 *
+	 * @param string|null $cached         Cached template output, or null to render the file.
+	 * @param string      $_template_file The full path to the template file.
+	 * @param bool        $load_once      Whether to require_once or require.
+	 * @param array       $args           Additional arguments passed to the template.
+	 */
+	$cached = apply_filters( 'wp_template_render', null, $_template_file, $load_once, $args );
+	if ( null !== $cached ) {
+		echo $cached; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- template output is already-rendered markup.
+		return;
+	}
+
+	/**
 	 * Fires before a template file is loaded.
 	 *
 	 * @since 6.1.0
