@@ -794,19 +794,6 @@ final class WP_Interactivity_API {
 	}
 
 	/**
-	 * Determines JS-style truthiness for the subset of value types directive
-	 * expressions can observe on the server.
-	 *
-	 * Key divergences from PHP:
-	 * - empty arrays are truthy in JS, falsy in PHP
-	 * - the string '0' is truthy in JS, falsy in PHP
-	 *
-	 * @since 6.9.0
-	 *
-	 * @param mixed $value Value to test.
-	 * @return bool Whether the value is truthy in JS terms.
-	 */
-	/**
 	 * JavaScript truthiness semantics (protected for subclass use).
 	 *
 	 * Matches the client's truthiness exactly, including the JS oddity that
