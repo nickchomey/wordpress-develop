@@ -806,7 +806,20 @@ final class WP_Interactivity_API {
 	 * @param mixed $value Value to test.
 	 * @return bool Whether the value is truthy in JS terms.
 	 */
-	private function is_js_truthy( $value ): bool {
+	/**
+	 * JavaScript truthiness semantics (protected for subclass use).
+	 *
+	 * Matches the client's truthiness exactly, including the JS oddity that
+	 * the string "0" is falsy, so server-side evaluation (e.g. negation in
+	 * directive values) cannot diverge from what the browser will do on
+	 * hydration.
+	 *
+	 * @since 6.9.0
+	 *
+	 * @param mixed $value The value to test.
+	 * @return bool Whether the value is JS-truthy.
+	 */
+	protected function is_js_truthy( $value ): bool {
 		if ( null === $value ) {
 			return false;
 		}
@@ -818,7 +831,7 @@ final class WP_Interactivity_API {
 			return 0 != $value;
 		}
 		if ( is_string( $value ) ) {
-			return '' !== $value;
+			return '' !== $value && '0' !== $value;
 		}
 		if ( is_array( $value ) || is_object( $value ) ) {
 			return true;
@@ -2110,7 +2123,7 @@ final class WP_Interactivity_API {
 	 *                                                 empty string, it removes the style property.
 	 * @return string The new style attribute value after the specified property has been added, updated or removed.
 	 */
-	private function merge_style_property( string $style_attribute_value, string $style_property_name, $style_property_value ): string {
+	protected function merge_style_property( string $style_attribute_value, string $style_property_name, $style_property_value ): string {
 		$style_assignments    = explode( ';', $style_attribute_value );
 		$result               = array();
 		$style_property_value = ! empty( $style_property_value ) ? rtrim( trim( $style_property_value ), ';' ) : null;
